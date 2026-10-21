@@ -46,9 +46,10 @@ membership plus a separately approved distribution process such as TestFlight.
 
 > **Honesty statement:** the Python receiver is **fully tested and working**
 > on this Windows machine (43 automated tests + a live smoke test). The
-> Swift/iOS code is **written but NOT compiled or run on a real device**,
-> because that is impossible on Windows. Do not treat the iPhone capture
-> path as verified until you build and run it yourself.
+> Swift/iOS code has been compiled and its protocol tests passed in the
+> GitHub-hosted macOS simulator workflow, but it has **NOT been installed or
+> run on a real iPhone**. Do not treat the iPhone capture path as verified
+> until you build and run it yourself.
 
 ---
 
@@ -199,7 +200,7 @@ static let receiverPort: UInt16 = 8765
 static let sharedToken = "mlbb-phase1"       // must match the PC's --token
 ```
 
-Keep `receiverHost` in sync with the `--token` you pass to the PC.
+Keep `sharedToken` in sync with the `--token` you pass to the PC.
 
 ### 2.3 Generate the Xcode project
 
@@ -240,9 +241,10 @@ weekly. For Phase 1 that is fine.
 1. Connect the iPhone by **USB**, unlock it, tap **Trust** if prompted.
 2. In Xcode, select the **MLBBDraftAI** scheme and your iPhone.
 3. Press **Run** (⌘R).
-4. On the iPhone: **Settings → General → VPN & Device Management** → trust your
-   Apple ID → **Settings → General → About → Trust Certificates** → enable
-   full trust.
+4. On the iPhone, trust the developer app under **Settings → General → VPN &
+   Device Management** if prompted. On iOS 16 or later, enable **Developer
+   Mode** under **Settings → Privacy & Security** if iOS requests it, then
+   restart and confirm.
 5. On first launch, if a *Local Network* prompt appears, tap **Allow**.
    (iOS 14+ requires this for any LAN socket.)
 

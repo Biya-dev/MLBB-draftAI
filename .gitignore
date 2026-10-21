@@ -20,3 +20,5 @@ xcuserdata/
 # Local config / secrets
 *.local
 .env
+temp_check.py
+verify.py
