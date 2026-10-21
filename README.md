@@ -16,28 +16,26 @@ Hero recognition and draft recommendations are deliberately **not** included yet
 
 ---
 
-## iOS from Windows using cloud macOS
+## Free iOS testing from Windows
 
-Apple's Xcode does not run on Windows, but GitHub Actions can build and sign
-the app on a hosted macOS runner, upload it to TestFlight, and let you install
-it on your iPhone. This supported TestFlight path requires Apple Developer
-Program membership (currently US$99/year; price and availability vary by
-region). The hosted runner cannot connect directly to your iPhone; TestFlight
-is the hand-off for installation.
+The public repository uses free, standard GitHub-hosted macOS runners to
+compile the iOS app and run its simulator protocol tests. A manual workflow
+can also package an **unsigned** iOS device IPA; install/signing is then
+attempted locally on your Windows PC with AltStore/AltServer and a free Apple
+Account. This avoids paid Apple membership, TestFlight, paid cloud services,
+and a Mac. The hosted runner cannot connect to or test your iPhone.
 
 | Step | Windows only |
 |---|---|
 | Edit Swift source | ✅ |
-| Compile and sign on a hosted macOS runner | ✅ With the manual TestFlight workflow |
-| Install from TestFlight | ✅ |
-| Connect Xcode to iPhone over USB from the runner | ❌ |
+| Compile an unsigned device IPA on a hosted macOS runner | ✅ |
+| Sign and install on Windows using a free Apple Account | ✅ Attempt with AltStore; Apple limitations apply |
+| Verify ReplayKit screen capture on an actual iPhone | ❌ Requires you to install and test on your iPhone |
 
-> **Honesty statement:** the Python receiver is **fully tested and working**
-> on this Windows machine (43 automated tests + a live smoke test). The
-> Swift/iOS code has been compiled and its protocol tests passed in the
-> GitHub-hosted macOS simulator workflow, but it has **NOT been installed or
-> run on a real iPhone**. TestFlight enables installation, but only a live
-> device test verifies screen capture and streaming.
+> **Testing boundary:** CI can compile the iOS targets, run protocol tests in
+> a simulator, and verify the device IPA contains the broadcast extension.
+> None of those checks proves ReplayKit captures or streams a real iPhone
+> screen. Only the manual device test below can establish that.
 
 ---
 
@@ -146,18 +144,20 @@ GitHub Actions runs automatically on pushes and pull requests to `master`:
   the Xcode project, compile both targets without signing, and run the Swift
   protocol tests in an available iOS Simulator. It is compile/simulator
   verification only--not a real-device test.
-* **Build and Upload iOS App to TestFlight** is manually started after
-  configuring Apple signing/API secrets. It signs and uploads the app to App
-  Store Connect; it does not connect to or test an iPhone.
+* **Build unsigned iOS IPA for free sideloading** is manually started from
+  Actions. It uses macOS to build an unsigned device IPA and verifies that
+  the app, extension ID, and receiver address are packaged. It does not sign,
+  install, or test on an iPhone.
 
-The existing build/test workflows require no secrets. The optional TestFlight
-workflow requires the secrets described below. Check GitHub Actions usage
-limits for the current repository/account.
+No Apple credentials or repository secrets are used. GitHub documents
+standard hosted runners as free and unlimited for public repositories; this
+repository is public. If its visibility changes, check the account's Actions
+quota and billing first.
 
 ---
 
 
-## Part 2 — iOS app (cloud build and TestFlight)
+## Part 2 — iOS app (free cloud build and Windows sideload)
 
 ### 2.1 Files
 
@@ -180,158 +180,78 @@ ios/
     └── WireProtocolTests.swift
 ```
 
-### 2.2 One-time Apple setup
+### 2.2 Create the unsigned device IPA
 
-1. Enroll in the [Apple Developer Program](https://developer.apple.com/programs/)
-   and accept the paid membership terms.
-2. Choose a unique explicit bundle ID, for example
-   `com.yourname.mlbbdraftai`. In Certificates, Identifiers & Profiles, create
-   App IDs for that ID and its extension ID
-   `com.yourname.mlbbdraftai.BroadcastExtension`.
-3. In App Store Connect, create an iOS app record using the main bundle ID
-   (SKU can be any unique label). The workflow uses version `1.0` and sets a
-   new build number automatically on each run.
-4. In App Store Connect → **Users and Access → Integrations → App Store
-   Connect API**, create an API key with the **Admin** role so Xcode can
-   manage signing assets and upload builds. Download its `.p8` file once and
-   note the **Key ID**, **Issuer ID**, and your 10-character **Team ID**.
-5. In this GitHub repository, open **Settings → Secrets and variables →
-   Actions → New repository secret** and add:
+1. Find the Windows PC's Wi-Fi IPv4 address with `ipconfig`.
+2. In GitHub, open **Actions → Build unsigned iOS IPA for free sideloading
+   → Run workflow**. Enter a unique reverse-DNS bundle ID, such as
+   `com.yourname.mlbbdraftai`, and the PC IPv4 address.
+3. Wait for the run to complete. Download the
+   `MLBBDraftAI-unsigned-ipa` artifact from the run and extract the `.ipa`.
+   The workflow builds the app and extension, checks that the extension is
+   embedded with the expected bundle ID, and checks the receiver address in
+   both Info.plists. The IPA is **not signed**.
 
-   | Secret name | Value |
-   |---|---|
-   | `APPLE_TEAM_ID` | Apple Developer Team ID |
-   | `APP_STORE_CONNECT_KEY_ID` | API key ID |
-   | `APP_STORE_CONNECT_ISSUER_ID` | API issuer ID |
-   | `APP_STORE_CONNECT_API_KEY` | Entire contents of the downloaded `.p8` file |
-   | `IOS_SHARED_TOKEN` | A token of your choice; use the same value when starting the PC receiver |
+### 2.3 Install and sign from Windows with a free Apple Account
 
-   Do not commit the `.p8` file or token. The token is embedded in the app and
-   can be extracted, so treat it as protection against accidental LAN
-   connections, not as a high-security secret.
+The practical free route is [AltStore Classic](https://altstore.io/) with
+[AltServer for Windows](https://faq.altstore.io/altstore-classic/how-to-install-altstore-windows.md).
+It uses your free Apple Account to sign sideloaded apps. It does not require
+TestFlight, paid Apple membership, or a Mac. AltStore is third-party software;
+review its documentation and security model before entering your Apple
+credentials.
 
-### 2.3 Build, upload, and install (no Mac required)
+1. Install iTunes and iCloud for Windows using AltStore's current Windows
+   setup instructions. AltStore currently requires the versions downloaded
+   directly from Apple rather than Microsoft Store versions.
+2. Install AltServer, connect and trust your iPhone over USB, and follow
+   AltStore's steps to install AltStore on the phone using your Apple Account.
+3. On the iPhone, trust the developer profile if prompted. On iOS 16 and
+   later, enable **Developer Mode** under **Settings → Privacy & Security**
+   if requested.
+4. In AltStore, use **My Apps → +** to select the downloaded IPA and allow
+   AltStore/AltServer to sign and install it. The app includes a ReplayKit
+   broadcast extension; the free Apple Account/AltStore provisioning path
+   may reject this extension or its entitlements. If it does, there is no
+   supported way to bypass that Apple restriction under these constraints.
+5. Free personal provisioning expires after 7 days and has Apple limits on
+   app IDs, devices, and simultaneously installed sideloaded apps. Keep
+   AltServer available on the PC and follow AltStore's refresh instructions;
+   reinstall/re-sign after expiry if refresh fails.
 
-1. On Windows, start the receiver with the same token stored as
-   `IOS_SHARED_TOKEN`, for example:
+### 2.4 Verify ReplayKit on the real iPhone
 
-   ```powershell
-   python -m receiver --token your-long-random-token
-   ```
+CI and unsigned packaging cannot exercise the system ReplayKit broadcaster or
+prove that a physical phone sends frames. Only perform this end-to-end check
+after AltStore successfully installs the app:
 
-2. Find the PC's Wi-Fi IPv4 address with `ipconfig`.
-3. Push the workflow changes to `master`. In GitHub, open **Actions → Build
-   and Upload iOS App to TestFlight → Run workflow**. Enter the registered
-   main bundle ID and PC IPv4 address, then start the run.
-4. Wait for the run to finish successfully. App Store Connect may take several
-   minutes to process the uploaded build.
-5. In App Store Connect → **TestFlight**, add your Apple ID as an internal
-   tester if it is not already an App Store Connect user. Accept the
-   invitation on the iPhone, install Apple's **TestFlight** app, and install
-   MLBB Draft AI from the invitation. Internal testing does not require public
-   App Store review.
-6. Keep the receiver running and phone on the same non-isolated Wi-Fi. Allow
-   Local Network access, start the screen broadcast, and confirm frames reach
-   the Windows dashboard. This is the first real-device validation; a hosted
-   build or simulator test is not.
+1. On Windows, allow the receiver through the firewall using
+   `windows\\open-firewall.ps1` as Administrator.
+2. Start the receiver using the token embedded by this workflow:
+   `python -m receiver --token mlbb-phase1`. Keep the dashboard open at
+   `http://127.0.0.1:8080/`.
+3. Put the iPhone and PC on the same non-isolated Wi-Fi. Launch the app, allow
+   Local Network access, tap **Start Screen Broadcast**, choose **MLBB Screen
+   Upload**, and confirm the iOS broadcast prompt.
+4. Verify on the Windows dashboard that `frames_received` and
+   `frames_processed` increase, a JPEG snapshot is present, and the live
+   image updates. If no frames arrive, inspect the receiver's token/firewall
+   output and verify the receiver IP embedded in this IPA.
 
-The workflow uses automatic Xcode signing with the App Store Connect API key.
-It gives the app and upload extension matching bundle IDs, assigns a unique
-build number, and keeps the signing key on the temporary hosted runner.
-
-### 2.4 Alternative: build and install directly from a Mac
-
-This alternative needs a Mac with Xcode and XcodeGen. Install XcodeGen:
-
-```bash
-brew install xcodegen
-cd ios
-xcodegen generate
-open MLBBDraftAI.xcodeproj
-```
-
-### 2.5 Direct-device signing with a FREE Apple ID
-
-Apple lets you sign with a **free personal Apple ID** — no $99/year needed.
-Limitation: the profile expires after **7 days** and you must re-install
-weekly. For Phase 1 that is fine.
-
-This alternative requires access to a Mac; the cloud TestFlight path above
-requires paid Apple Developer Program membership instead.
-
-1. Open the project in Xcode.
-2. Select the **MLBBDraftAI** target → **Signing & Capabilities**.
-3. Tick **Automatically manage signing**.
-4. Choose your **Apple ID** in the **Team** dropdown
-   (Xcode → Settings → Accounts → **+** → Apple ID).
-5. Set a **unique bundle identifier**, e.g. `com.yourname.mlbbdraftai`
-   (it must be unique worldwide — set `APP_BUNDLE_ID` in `project.yml`).
-6. Select the **BroadcastExtension** target → Signing & Capabilities →
-   same Team, bundle ID `com.yourname.mlbbdraftai.BroadcastExtension`.
-7. Select your iPhone under **Run Destination**.
-
-> **Entitlements:** a Broadcast *Upload* Extension needs **no special
-> entitlement** — the App Group is only needed if you want the app and the
-> extension to share status. `SharedStatus` falls back to standard
-> `UserDefaults` when the App Group is not provisioned, so you can **skip
-> the App Group entirely** for Phase 1.
-
-### 2.6 Build and install from Xcode
-
-1. Connect the iPhone by **USB**, unlock it, tap **Trust** if prompted.
-2. In Xcode, select the **MLBBDraftAI** scheme and your iPhone.
-3. Press **Run** (⌘R).
-4. On the iPhone, trust the developer app under **Settings → General → VPN &
-   Device Management** if prompted. On iOS 16 or later, enable **Developer
-   Mode** under **Settings → Privacy & Security** if iOS requests it, then
-   restart and confirm.
-5. On first launch, if a *Local Network* prompt appears, tap **Allow**.
-   (iOS 14+ requires this for any LAN socket.)
-
-### 2.7 First real-device test: exact checklist
-
-This is the first step that verifies the end-to-end iPhone path; no CI or
-simulator result substitutes for it.
-
-1. Have an iPhone running iOS 15 or later, the Windows PC, and both on the
-   same non-isolated Wi-Fi. A Mac is not needed for the TestFlight path.
-2. On Windows, install dependencies, run `windows\\open-firewall.ps1` as
-   Administrator, and start `python -m receiver --token <your-token>`.
-   Keep the dashboard at `http://127.0.0.1:8080/` open.
-3. Find the Windows Wi-Fi IPv4 address with `ipconfig`. For TestFlight, enter
-   it in the workflow run and use the same token as the `IOS_SHARED_TOKEN`
-   GitHub secret and the PC receiver. For a direct Xcode build, set
-   `MLBB_RECEIVER_HOST` and `MLBB_SHARED_TOKEN` in `project.yml`.
-4. Install the uploaded build from TestFlight, or use the direct Xcode
-   installation steps above.
-5. Allow Local Network access when iOS prompts. In the app select **Start
-   Screen Broadcast** and explicitly confirm the system broadcast sheet.
-6. Confirm the Windows dashboard shows received/processed frames greater than
-   zero, a JPEG snapshot, and the live iPhone screen. Record the outcome and
-   any receiver log error; only then may the device test be called successful.
-
-### 2.8 Confirm it works
-
-1. On the PC, open **http://127.0.0.1:8080/**
-2. The **Status** pill should turn **green** and the FPS counter should climb.
-3. Your iPhone screen appears in the **Live Screen** panel.
+Do not treat a successful simulator run, CI build, or AltStore installation
+as proof of real-device capture. Record a successful device test only after
+observing frames from the actual iPhone in the Windows dashboard.
 
 ---
-
-**iOS deliberately requires the user to start screen sharing.** There is no
-programmatic way around this — it is an OS privacy guarantee.
-
-**A. From the app (recommended)**
-1. Open **MLBB Draft AI**.
 
 ## Part 3 — Troubleshooting
 
 | Symptom | Cause | Fix |
 |---|---|---|
 | Dashboard shows "Waiting for the iPhone" | Phone never connected | Check the PC firewall rules; confirm the workflow's receiver-host input matches the PC's IP and the token matches on both sides. |
-| Status: **auth_failed** | Token mismatch | The PC's `--token` must match the `IOS_SHARED_TOKEN` GitHub secret used by the installed build, **including case**. |
+| Status: **auth_failed** | Token mismatch | Use `--token mlbb-phase1` on the PC to match the token embedded in this free-build IPA. |
 | Status: **error** on the iPhone | Cannot reach the PC | Both devices must be on the **same** Wi-Fi. Disable **AP/client isolation** on the router. |
-| Status: "Reconnecting in Ns..." | PC receiver not running | Start `python -m receiver --token <your-token>` on the PC. |
+| Status: "Reconnecting in Ns..." | PC receiver not running | Start `python -m receiver --token mlbb-phase1` on the PC. |
 | Black / frozen image | Extension throttling too low | Raise `SharedConfig.targetFPS` to 20–30. |
 | Very laggy video | Too much data | Lower `targetFPS` to 8–10 or `maxFrameWidth` to 854. |
 | "Local Network" prompt denied | iOS local-network privacy | Settings → Privacy → **Local Network** → enable **MLBB Draft AI**. |
@@ -406,16 +326,6 @@ any change to either side.
 * Optional TLS + reconnect-with-resume
 * Screen recording to disk for replay
 
-2. Tap **Start Screen Broadcast**.
-3. In the sheet, pick **MLBB Screen Upload** → **Start Broadcast**.
-4. Confirm **Start Broadcast** in the system dialog.
-
-**B. From Control Center**
-1. Swipe down from the top-right → tap the **Screen Recording** button.
-2. Pick **MLBB Screen Upload** → **Start Broadcast**.
-
-A red pill appears in the status bar while broadcasting.
-
 ---
 
 ## 📋 Verification status
@@ -425,8 +335,8 @@ A red pill appears in the status bar while broadcasting.
 | **Windows receiver tests** | `pytest` and socket/dashboard smoke test | **PASS** (43 tests and smoke test, previously run locally) |
 | **Swift protocol tests** | Shared protocol tests on GitHub-hosted iOS Simulator | **PASS** (8 tests, prior workflow run) |
 | **Unsigned app and extension builds** | GitHub-hosted macOS compile-only build | **PASS** (prior workflow run) |
-| **Cloud TestFlight workflow** | Signed archive and App Store Connect upload | **PENDING** (requires Apple membership and repository secrets) |
-| **Real iPhone installation and broadcast** | Install from TestFlight and stream to Windows receiver | **NOT RUN** |
+| **Unsigned device IPA workflow** | Package app and extension for free sideload attempt | **PENDING** (new workflow; requires hosted run) |
+| **Real iPhone installation and broadcast** | Install via AltStore and stream to Windows receiver | **NOT RUN** |
 
 ---
 
@@ -435,31 +345,16 @@ A red pill appears in the status bar while broadcasting.
 - [ ] Python 3.10+ installed ✅ (3.13.12)
 - [ ] venv created: `py -3.13 -m venv .venv`
 - [ ] Dependencies installed: `py -3.13 -m pip install -r requirements.txt`
-- [ ] Receiver starts with the same token as GitHub's `IOS_SHARED_TOKEN` secret
+- [ ] Receiver starts with `python -m receiver --token mlbb-phase1`
 - [ ] Dashboard accessible at `http://127.0.0.1:8080/`
 - [ ] Firewall rules: `powershell -ExecutionPolicy Bypass -File .\open-firewall.ps1`
 - [ ] PC's Wi-Fi IP noted (run `ipconfig`); use it for the workflow input
 
-### TestFlight Release Checklist
-
-- [ ] Paid Apple Developer Program membership active
-- [ ] App and `.BroadcastExtension` App IDs and an App Store Connect app record created
-- [ ] Five required GitHub Actions secrets configured (see section 2.2)
-- [ ] `master` contains the TestFlight workflow
-- [ ] Manual workflow run succeeds and build finishes App Store Connect processing
-- [ ] TestFlight invitation accepted and app installed on the iPhone
-- [ ] Real-device broadcast verified against the Windows dashboard
-
-### macOS / iPhone Build Checklist
-
-- [ ] A Mac is needed only for the optional direct Xcode installation path
-- [ ] For cloud installation, follow **2.2 One-time Apple setup** and **2.3 Build, upload, and install**
-
 ### ❌ Known Limitations (do not treat as bugs)
 
-- Cloud TestFlight installation requires paid Apple Developer Program membership
 - The hosted macOS runner cannot connect directly to or test a physical iPhone
-- Direct installation with a free Apple ID requires a Mac and expires every 7 days
+- AltStore may reject signing the ReplayKit extension under a free Apple Account; this must be tried on-device
+- Free Apple Account provisioning expires after 7 days and is subject to Apple's app ID/device/app limits
 - Real-device streaming has **not been verified**
 - JPEG re-encode quality difference between iPhone (`uiImage.jpegData`) and Python OpenCV may cause slight visual variation
 - No hero recognition, draft engine, or AI analysis included (Phase 1 scope: live feed only)

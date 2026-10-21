@@ -1,0 +1,119 @@
+name: Build unsigned iOS IPA for free sideloading
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_bundle_id:
+        description: Unique reverse-DNS bundle ID (extension gets the .BroadcastExtension suffix)
+        required: true
+        type: string
+      receiver_host:
+        description: Windows PC Wi-Fi IPv4 address
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-unsigned-ipa:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate build inputs
+        env:
+          APP_BUNDLE_ID: ${{ inputs.app_bundle_id }}
+          RECEIVER_HOST: ${{ inputs.receiver_host }}
+        run: |
+          set -euo pipefail
+          [[ "$APP_BUNDLE_ID" =~ ^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$ ]] || {
+            echo "::error::Enter a valid reverse-DNS app bundle ID."
+            exit 1
+          }
+          [[ "$RECEIVER_HOST" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || {
+            echo "::error::Enter the Windows PC's IPv4 address."
+            exit 1
+          }
+          IFS=. read -r -a octets <<< "$RECEIVER_HOST"
+          for octet in "${octets[@]}"; do
+            if ((10#$octet > 255)); then
+              echo "::error::IPv4 octets must be between 0 and 255."
+              exit 1
+            fi
+          done
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build unsigned device app
+        env:
+          APP_BUNDLE_ID: ${{ inputs.app_bundle_id }}
+          RECEIVER_HOST: ${{ inputs.receiver_host }}
+        working-directory: ios
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project MLBBDraftAI.xcodeproj \
+            -scheme MLBBDraftAI \
+            -destination "generic/platform=iOS" \
+            -configuration Release \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            APP_BUNDLE_ID="$APP_BUNDLE_ID" \
+            MLBB_RECEIVER_HOST="$RECEIVER_HOST" \
+            MLBB_SHARED_TOKEN=mlbb-phase1 \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            build
+
+          app_path="$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos/MLBBDraftAI.app"
+          extension_path="$app_path/PlugIns/BroadcastExtension.appex"
+          if [[ ! -d "$extension_path" ]]; then
+            echo "::error::The built app does not contain BroadcastExtension.appex."
+            exit 1
+          fi
+
+          app_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_path/Info.plist")
+          extension_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$extension_path/Info.plist")
+          [[ "$app_id" == "$APP_BUNDLE_ID" ]] || {
+            echo "::error::Unexpected app bundle ID: $app_id"
+            exit 1
+          }
+          [[ "$extension_id" == "$APP_BUNDLE_ID.BroadcastExtension" ]] || {
+            echo "::error::Unexpected extension bundle ID: $extension_id"
+            exit 1
+          }
+          app_host=$(/usr/libexec/PlistBuddy -c 'Print :MLBB_RECEIVER_HOST' "$app_path/Info.plist")
+          extension_host=$(/usr/libexec/PlistBuddy -c 'Print :MLBB_RECEIVER_HOST' "$extension_path/Info.plist")
+          app_token=$(/usr/libexec/PlistBuddy -c 'Print :MLBB_SHARED_TOKEN' "$app_path/Info.plist")
+          extension_token=$(/usr/libexec/PlistBuddy -c 'Print :MLBB_SHARED_TOKEN' "$extension_path/Info.plist")
+          [[ "$app_host" == "$RECEIVER_HOST" ]] || {
+            echo "::error::Unexpected app receiver host: $app_host"
+            exit 1
+          }
+          [[ "$extension_host" == "$RECEIVER_HOST" ]] || {
+            echo "::error::Unexpected extension receiver host: $extension_host"
+            exit 1
+          }
+          [[ "$app_token" == "mlbb-phase1" && "$extension_token" == "mlbb-phase1" ]] || {
+            echo "::error::App and extension shared-token configuration does not match."
+            exit 1
+          }
+
+          mkdir -p "$RUNNER_TEMP/ipa-root/Payload"
+          ditto "$app_path" "$RUNNER_TEMP/ipa-root/Payload/MLBBDraftAI.app"
+          ditto -c -k --sequesterRsrc --keepParent \
+            "$RUNNER_TEMP/ipa-root/Payload" \
+            "$RUNNER_TEMP/MLBBDraftAI-unsigned.ipa"
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: MLBBDraftAI-unsigned-ipa
+          path: ${{ runner.temp }}/MLBBDraftAI-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 7
