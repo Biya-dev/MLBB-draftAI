@@ -335,7 +335,7 @@ any change to either side.
 | **Windows receiver tests** | `pytest` and socket/dashboard smoke test | **PASS** (43 tests and smoke test, previously run locally) |
 | **Swift protocol tests** | Shared protocol tests on GitHub-hosted iOS Simulator | **PASS** (8 tests, prior workflow run) |
 | **Unsigned app and extension builds** | GitHub-hosted macOS compile-only build | **PASS** (prior workflow run) |
-| **Unsigned device IPA workflow** | Package app and extension for free sideload attempt | **PENDING** (new workflow; requires hosted run) |
+| **Unsigned device IPA workflow** | Package app and extension; verify IDs and receiver config | **PASS** (GitHub run 39565485591; unsigned artifact inspected on Windows) |
 | **Real iPhone installation and broadcast** | Install via AltStore and stream to Windows receiver | **NOT RUN** |
 
 ---
@@ -360,4 +360,4 @@ any change to either side.
 - No hero recognition, draft engine, or AI analysis included (Phase 1 scope: live feed only)
 
 ---
-*Last verified locally: Python receiver 43/43 tests passed and smoke test passed. The prior hosted macOS workflow built the iOS targets and passed 8 simulator tests; no real-device test has been performed.*
+*Verified: Windows Python receiver 43/43 tests and smoke test passed; GitHub macOS build/test CI passed, and the unsigned device IPA was built and inspected. The IPA has not been installed on a phone, and no real-device ReplayKit test has been performed.*
