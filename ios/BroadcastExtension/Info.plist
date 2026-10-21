@@ -19,7 +19,11 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>MLBB_RECEIVER_HOST</key>
+	<string>$(MLBB_RECEIVER_HOST)</string>
+	<key>MLBB_SHARED_TOKEN</key>
+	<string>$(MLBB_SHARED_TOKEN)</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>MLBB Draft AI streams your screen to your computer on the same Wi-Fi network.</string>
 	<key>NSExtension</key>

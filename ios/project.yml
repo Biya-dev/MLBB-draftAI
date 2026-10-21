@@ -11,10 +11,9 @@ settings:
     SWIFT_VERSION: "5.0"
     MARKETING_VERSION: "1.0"
     CURRENT_PROJECT_VERSION: "1"
-    # Free personal team: code signing is done on the Mac with a
-    # personal Apple ID. Set DEVELOPMENT_TEAM in Xcode after adding
-    # your team, or leave it empty and use "Automatically manage
-    # signing" in the Signing & Capabilities tab.
+    APP_BUNDLE_ID: mlbb.draftai.app
+    MLBB_RECEIVER_HOST: 192.168.1.158
+    MLBB_SHARED_TOKEN: mlbb-phase1
     CODE_SIGN_STYLE: Automatic
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     SWIFT_STRICT_CONCURRENCY: minimal
@@ -44,7 +43,7 @@ targets:
         codeSign: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: mlbb.draftai.app
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID)
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
         TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: NO
@@ -64,7 +63,7 @@ targets:
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).BroadcastSampleHandler
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: mlbb.draftai.app.BroadcastExtension
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).BroadcastExtension
         GENERATE_INFOPLIST_FILE: NO
         TARGETED_DEVICE_FAMILY: "1,2"
         # The extension must be able to reach the local network.
@@ -80,7 +79,7 @@ targets:
       - path: Shared/WireProtocol.swift
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: mlbb.draftai.app.BroadcastExtensionTests
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).BroadcastExtensionTests
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: ""
         BUNDLE_LOADER: ""
