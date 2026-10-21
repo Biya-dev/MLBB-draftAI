@@ -8,11 +8,6 @@ struct ContentView: View {
 
     @EnvironmentObject private var model: AppModel
 
-    /// The system broadcast picker. iOS requires the user to choose an
-    /// extension and press "Start Broadcast" - this is deliberate
-    /// privacy design and cannot be bypassed.
-    @State private var showPicker = false
-
     var body: some View {
         NavigationView {
             ScrollView {
@@ -36,20 +31,9 @@ struct ContentView: View {
                             .foregroundColor(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
 
-                        Button {
-                            showPicker = true
-                        } label: {
-                            Label(
-                                model.isBroadcasting
-                                    ? "Change Broadcast"
-                                    : "Start Screen Broadcast",
-                                systemImage: "record.circle"
-                            )
+                        BroadcastPickerButton()
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 6)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.red)
+                            .frame(height: 44)
                     }
 
                     section("Status") {
@@ -77,22 +61,6 @@ struct ContentView: View {
                 .padding(16)
             }
             .navigationTitle("MLBB Draft AI")
-            .broadcastPicker(showPicker, completion: { result in
-                showPicker = false
-                switch result {
-                case .success(let pickerResult):
-                    switch pickerResult {
-                    case .ended:
-                        model.isBroadcasting = false
-                    case .started:
-                        model.isBroadcasting = true
-                    @unknown default:
-                        model.isBroadcasting = false
-                    }
-                case .failure:
-                    model.isBroadcasting = false
-                }
-            })
         }
     }
 
@@ -132,6 +100,19 @@ struct ContentView: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
+}
+
+/// Apple's broadcast picker bridged into SwiftUI. Tapping it remains an
+/// explicit user action, as required by ReplayKit's privacy model.
+struct BroadcastPickerButton: UIViewRepresentable {
+    func makeUIView(context: Context) -> RPSystemBroadcastPickerView {
+        let picker = RPSystemBroadcastPickerView(frame: .zero)
+        picker.preferredExtension = "\(Bundle.main.bundleIdentifier ?? \"mlbb.draftai.app\").BroadcastExtension"
+        picker.showsMicrophoneButton = false
+        return picker
+    }
+
+    func updateUIView(_ uiView: RPSystemBroadcastPickerView, context: Context) {}
 }
 
 /// A label / value row.
