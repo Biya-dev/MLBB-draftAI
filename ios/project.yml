@@ -37,6 +37,8 @@ targets:
         NSLocalNetworkUsageDescription: >-
           MLBB Draft AI connects to your computer on the same Wi-Fi
           network to stream your screen to the local dashboard.
+        MLBB_RECEIVER_HOST: $(MLBB_RECEIVER_HOST)
+        MLBB_SHARED_TOKEN: $(MLBB_SHARED_TOKEN)
     dependencies:
       - target: BroadcastExtension
         embed: true
@@ -61,6 +63,8 @@ targets:
         NSExtension:
           NSExtensionPointIdentifier: com.apple.broadcast-services-upload
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).BroadcastSampleHandler
+        MLBB_RECEIVER_HOST: $(MLBB_RECEIVER_HOST)
+        MLBB_SHARED_TOKEN: $(MLBB_SHARED_TOKEN)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).BroadcastExtension
