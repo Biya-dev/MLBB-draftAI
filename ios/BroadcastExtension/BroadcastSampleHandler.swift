@@ -63,7 +63,7 @@ final class BroadcastSampleHandler: RPBroadcastSampleHandler {
         switch sampleBufferType {
         case .video:
             handleVideoSample(sampleBuffer)
-        case .audio:
+        case .audioApp, .audioMic:
             // Audio is intentionally ignored: this is a video pipeline.
             break
         @unknown default:
