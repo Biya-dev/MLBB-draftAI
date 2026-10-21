@@ -56,7 +56,7 @@ final class BroadcastSampleHandler: RPBroadcastSampleHandler {
         recordStatus(.idle)
     }
 
-    override func sampleHandler(
+    override func processSampleBuffer(
         _ sampleBuffer: CMSampleBuffer,
         with sampleBufferType: RPSampleBufferType
     ) {
