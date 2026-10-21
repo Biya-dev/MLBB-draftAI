@@ -1,0 +1,37 @@
+name: Python CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r windows/requirements.txt
+          python -m pip install -r windows/requirements-dev.txt
+
+      - name: Run pytest
+        working-directory: windows
+        run: pytest -v
+
+      - name: Run smoke test
+        working-directory: windows
+        run: python -m receiver.smoke_test --token mlbb-phase1 --frames 10 --fps 10 --http-port 0

@@ -62,7 +62,22 @@ def main(argv: list[str] | None = None) -> int:
     server = uvicorn.Server(config)
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
-    time.sleep(1.5)
+    # Wait for uvicorn to bind (port 0 = OS picks an ephemeral port).
+    # Uvicorn exposes asyncio listeners through ``servers`` after startup.
+    http_port = args.http_port
+    for _ in range(50):
+        for listener in getattr(server, "servers", []):
+            if listener.sockets:
+                http_port = listener.sockets[0].getsockname()[1]
+                break
+        if http_port:
+            break
+        time.sleep(0.1)
+
+    if not http_port:
+        app.stop()
+        server.should_exit = True
+        raise RuntimeError("dashboard server did not bind within 5 seconds")
 
     sock = socket.create_connection(("127.0.0.1", port), timeout=5)
     sock.sendall(encode_auth(args.token))
@@ -73,7 +88,7 @@ def main(argv: list[str] | None = None) -> int:
     sock.close()
     time.sleep(0.5)
 
-    base = f"http://127.0.0.1:{args.http_port}"
+    base = f"http://127.0.0.1:{http_port}"
     status = json.loads(urllib.request.urlopen(f"{base}/api/status").read())
     print("[smoke] status:", status["state"], "fps:", status["fps"])
     print("[smoke] stats:", status["stats"])

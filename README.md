@@ -33,19 +33,19 @@ requires a macOS machine with Xcode.
 | Sign it with your Apple ID | ❌ Needs macOS + Xcode |
 | Install it on your iPhone | ❌ Needs macOS + Xcode (or TestFlight) |
 
-**Simplest free workaround (pick one):**
+**Practical Windows-first path:** GitHub Actions builds and unit-tests the
+Swift sources on a hosted macOS runner. This repository is public, so standard
+GitHub-hosted runners are free and unlimited; the workflow does not use a
+paid service. This catches Xcode and simulator failures without a Mac.
 
-1. **Borrow or use any Mac** — even a Mac mini or a family member's Mac.
-   Clone this repo, run `xcodegen`, open the project, and plug in your
-   iPhone over USB.
-2. **Use a Windows-to-Mac build service** — [Codemagic](https://codemagic.io)
-   or GitHub Actions macOS runners (free for public repos) can compile the
-   app. You still need a free Apple Developer account to sign it.
-3. **Do Phase 1 PC-only first** (see "Verify without an iPhone" below),
-   then borrow a Mac when you are ready to do the iOS half.
+A **real iPhone test still cannot be performed in GitHub Actions**: the
+hosted runner has no USB connection to your phone and cannot complete a
+personal-device signing flow. For the first install you need temporary access
+to a Mac (borrowed is fine) and a free Apple ID, or a paid Apple Developer
+membership plus a separately approved distribution process such as TestFlight.
 
 > **Honesty statement:** the Python receiver is **fully tested and working**
-> on this Windows machine (38 automated tests + a live smoke test). The
+> on this Windows machine (43 automated tests + a live smoke test). The
 > Swift/iOS code is **written but NOT compiled or run on a real device**,
 > because that is impossible on Windows. Do not treat the iPhone capture
 > path as verified until you build and run it yourself.
@@ -145,7 +145,23 @@ pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-Expected: **38 passed**.
+Expected: **43 passed**.
+
+### 1.7 Continuous integration
+
+GitHub Actions runs automatically on pushes and pull requests to `master`:
+
+* **Python CI** runs the receiver tests on Python 3.10--3.13 and performs the
+  socket + dashboard smoke test with ephemeral ports.
+* **iOS Build & Swift Tests** uses a GitHub-hosted macOS runner to generate
+  the Xcode project, compile both targets without signing, and run the Swift
+  protocol tests in an available iOS Simulator. It is compile/simulator
+  verification only--not a real-device test.
+
+The workflows use no repository secrets. The repository is currently public,
+so these standard GitHub-hosted runners have no Actions-minute charge. If the
+repository becomes private, macOS minutes count against the account's included
+quota and may become billable after that quota is exhausted.
 
 ---
 
@@ -230,7 +246,30 @@ weekly. For Phase 1 that is fine.
 5. On first launch, if a *Local Network* prompt appears, tap **Allow**.
    (iOS 14+ requires this for any LAN socket.)
 
-### 2.6 Start the broadcast (user action required)
+### 2.6 First real-device test: exact checklist
+
+Do this only after the GitHub iOS workflow is green. It is the first step that
+can verify the end-to-end iPhone path; no CI or simulator result substitutes
+for it.
+
+1. Have an iPhone running iOS 15 or later, its USB cable, the Windows PC and
+   iPhone on the same non-isolated Wi-Fi, and temporary access to a Mac with
+   current Xcode and XcodeGen.
+2. On Windows, install dependencies, run `windows\\open-firewall.ps1` as
+   Administrator, and start `python -m receiver --token <your-token>`.
+   Keep the dashboard at `http://127.0.0.1:8080/` open.
+3. Find the Windows Wi-Fi IPv4 address with `ipconfig`; set
+   `receiverHost` to it and set the same non-default token in
+   `SharedConfig.swift`. Do not commit a real token to the public repository.
+4. On the Mac, generate the project, select your free Apple ID team for both
+   targets, choose unique bundle identifiers, connect and trust the unlocked
+   iPhone, then build and run the app. A free personal signing profile is
+   sufficient for this direct installation and expires after seven days.
+5. Allow Local Network access when iOS prompts. In the app select **Start
+   Screen Broadcast** and explicitly confirm the system broadcast sheet.
+6. Confirm the Windows dashboard shows received/processed frames greater than
+   zero, a JPEG snapshot, and the live iPhone screen. Record the outcome and
+   any receiver log error; only then may the device test be called successful.
 
 ### 2.7 Confirm it works
 
@@ -405,4 +444,4 @@ A red pill appears in the status bar while broadcasting.
 - No hero recognition, draft engine, or AI analysis included (Phase 1 scope: live feed only)
 
 ---
-*Last verified: Python receiver 38/38 tests pass, smoke test PASS. iOS code written but uncompiled on Windows.*
+*Last verified locally: Python receiver 43/43 tests pass, smoke test PASS. iOS code is not compiled on Windows and no real-device test has been performed.*

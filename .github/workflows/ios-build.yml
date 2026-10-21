@@ -1,0 +1,98 @@
+name: iOS Build & Swift Tests (macOS)
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build BroadcastExtension (compile-only, no device signing)
+        working-directory: ios
+        # CODE_SIGNING_ALLOWED=NO lets us verify Swift compiles without a paid
+        # Apple Developer account or a device. This catches compile errors early.
+        run: |
+          set -o pipefail
+          if xcodebuild -project MLBBDraftAI.xcodeproj \
+            -target BroadcastExtension \
+            -sdk iphoneos \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            build 2>&1; then
+            echo "BUILD SUCCESS: BroadcastExtension"
+          else
+            echo "BUILD FAILED: BroadcastExtension"
+            exit 1
+          fi
+
+      - name: Build MLBBDraftAI app (compile-only)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          if xcodebuild -project MLBBDraftAI.xcodeproj \
+            -scheme MLBBDraftAI \
+            -destination "generic/platform=iOS" \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            build 2>&1; then
+            echo "BUILD SUCCESS: MLBBDraftAI"
+          else
+            echo "BUILD FAILED: MLBBDraftAI"
+            exit 1
+          fi
+
+      - name: Run Swift unit tests (iOS Simulator)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          device_id="$(python3 - <<'PY'
+          import json
+          import subprocess
+
+          devices = json.loads(subprocess.check_output(
+              ["xcrun", "simctl", "list", "devices", "available", "-j"], text=True
+          ))["devices"]
+          for runtime, entries in devices.items():
+              if runtime.startswith("com.apple.CoreSimulator.SimRuntime.iOS"):
+                  for device in entries:
+                      if device.get("isAvailable"):
+                          print(device["udid"])
+                          raise SystemExit
+          raise SystemExit("No available iOS Simulator device found")
+          PY
+          )"
+          echo "Testing on simulator ${device_id}"
+          xcodebuild test \
+            -project MLBBDraftAI.xcodeproj \
+            -scheme MLBBDraftAI \
+            -destination "id=${device_id}" \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            ENABLE_TESTS_ACTIVITY=NO \
+            | tee xcodebuild-test.log
+
+      - name: Upload Xcode test log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-test-log
+          path: ios/xcodebuild-test.log
+          if-no-files-found: ignore

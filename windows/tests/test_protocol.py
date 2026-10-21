@@ -6,6 +6,7 @@ import pytest
 
 from receiver.protocol import (
     HEADER_SIZE,
+    MAGIC,
     MAX_PAYLOAD,
     FrameDecoder,
     FrameType,
@@ -52,6 +53,43 @@ def test_decode_header_rejects_short_header():
 def test_encode_rejects_oversized_payload():
     with pytest.raises(ProtocolError):
         encode_frame(FrameType.FRAME, b"x" * (MAX_PAYLOAD + 1))
+
+
+def test_encode_rejects_bad_frame_type():
+    """Frame type must fit in one byte."""
+    with pytest.raises(ProtocolError):
+        encode_frame(300, b"payload")
+
+
+def test_frame_type_values():
+    assert FrameType.AUTH == 0x01
+    assert FrameType.FRAME == 0x02
+
+
+def test_encode_auth_empty_token():
+    """An empty token is still a valid (if insecure) AUTH frame."""
+    raw = encode_auth("")
+    assert raw[:4] == MAGIC
+    assert raw[4] == 0x01
+    length = raw[5:9]
+    assert length == b"\x00\x00\x00\x00"
+    assert raw[9:] == b""
+
+
+def test_encode_auth_matches_decode_header():
+    raw = encode_auth("secret-token")
+    frame_type, length = decode_header(raw[:HEADER_SIZE])
+    assert frame_type == FrameType.AUTH
+    assert length == len("secret-token")
+    assert raw[HEADER_SIZE:].decode("utf-8") == "secret-token"
+
+
+def test_max_payload_boundary_accepted():
+    """Exactly MAX_PAYLOAD bytes should be accepted (edge of the limit)."""
+    payload = b"\x00" * MAX_PAYLOAD
+    raw = encode_frame(FrameType.FRAME, payload)
+    frame_type, length = decode_header(raw[:HEADER_SIZE])
+    assert length == MAX_PAYLOAD
 
 
 def test_decoder_reassembles_split_frame():

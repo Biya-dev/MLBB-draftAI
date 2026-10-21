@@ -67,13 +67,15 @@ def test_authenticated_stream_reaches_hub(receiver):
     try:
         assert wait_for(lambda: receiver.hub.snapshot()["stats"]
                         ["frames_processed"] >= 1)
+        # The sender is still connected at this point. Check its live state
+        # before the cleanup below deliberately closes the socket.
+        snap = receiver.hub.snapshot()
+        assert snap["state"] == "connected"
+        assert snap["has_frame"] is True
+        assert snap["stats"]["frames_received"] == 1
+        assert snap["stats"]["bytes_received"] > 0
     finally:
         sock.close()
-    snap = receiver.hub.snapshot()
-    assert snap["state"] == "connected"
-    assert snap["has_frame"] is True
-    assert snap["stats"]["frames_received"] == 1
-    assert snap["stats"]["bytes_received"] > 0
 
 
 def test_wrong_token_is_rejected(receiver):
