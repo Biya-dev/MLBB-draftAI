@@ -31,10 +31,7 @@ struct ContentView: View {
                     }
 
                     section("Screen Broadcast") {
-                        Text("iOS only shares your screen while a broadcast is "
-                             + "running. Press the button below, then confirm "
-                             + "in the sheet. You can also start it from "
-                             + "Control Center > Screen Recording.")
+                        Text("iOS only shares your screen while a broadcast is running. Press the button below, then confirm in the sheet. You can also start it from Control Center > Screen Recording.")
                             .font(.footnote)
                             .foregroundColor(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
