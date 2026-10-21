@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MLBB Draft AI - Screen Receiver</title>
+<style>
+  :root {
+    --bg: #0e1116; --panel: #171b22; --line: #262d38;
+    --fg: #e6edf3; --muted: #8b949e; --ok: #3fb950;
+    --warn: #d29922; --err: #f85149;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif;
+         background: var(--bg); color: var(--fg); }
+  header { padding: 14px 20px; border-bottom: 1px solid var(--line);
+           display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  .pill { padding: 4px 12px; border-radius: 999px; font-size: 12px;
+          font-weight: 700; text-transform: uppercase; letter-spacing: .6px; }
+  .pill.connected { background: rgba(63,185,80,.15); color: var(--ok); }
+  .pill.connecting { background: rgba(210,153,34,.15); color: var(--warn); }
+  .pill.disconnected, .pill.error, .pill.auth_failed {
+          background: rgba(248,81,73,.15); color: var(--err); }
+  .pill.idle { background: rgba(139,148,158,.15); color: var(--muted); }
+  main { display: grid; grid-template-columns: 2fr 1fr; gap: 16px;
+         padding: 16px; align-items: start; }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line);
+           border-radius: 10px; overflow: hidden; }
+  .panel h2 { font-size: 13px; margin: 0; padding: 10px 14px;
+              border-bottom: 1px solid var(--line); color: var(--muted);
+              font-weight: 600; text-transform: uppercase; }
+  #view { background: #000; min-height: 320px; display: block; width: 100%; }
+  #empty { padding: 60px 20px; text-align: center; color: var(--muted);
+           font-size: 14px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+          background: var(--line); }
+  .cell { background: var(--panel); padding: 12px 14px; }
+  .cell .k { font-size: 11px; color: var(--muted); text-transform: uppercase; }
+  .cell .v { font-size: 20px; font-weight: 600; margin-top: 4px;
+             font-variant-numeric: tabular-nums; }
+  .cell .v small { font-size: 12px; color: var(--muted); font-weight: 400; }
+  #msg { padding: 12px 14px; font-size: 13px; color: var(--muted);
+         border-top: 1px solid var(--line); }
+  #errs { list-style: none; margin: 0; padding: 0; max-height: 260px;
+          overflow-y: auto; }
+  #errs li { padding: 8px 14px; border-bottom: 1px solid var(--line);
+             font-size: 12px; font-family: Consolas, monospace; }
+  #errs .at { color: var(--muted); margin-right: 8px; }
+  #errs .cat { color: var(--err); margin-right: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>MLBB Draft AI &mdash; Screen Receiver</h1>
+  <span id="state" class="pill idle">idle</span>
+  <span id="peer" style="color:var(--muted);font-size:13px"></span>
+</header>
+<main>
+  <div class="panel">
+    <h2>Live Screen</h2>
+    <img id="view" alt="Live iPhone screen" />
+    <div id="empty">No frames received yet.</div>
+    <div id="msg">Waiting for the iPhone to connect...</div>
+  </div>
+  <div>
+    <div class="panel" style="margin-bottom:16px">
+      <h2>Metrics</h2>
+      <div class="grid">
+        <div class="cell"><div class="k">FPS</div>
+          <div class="v" id="fps">0.0</div></div>
+        <div class="cell"><div class="k">Frame age</div>
+          <div class="v" id="age">-</div></div>
+        <div class="cell"><div class="k">Frames</div>
+          <div class="v" id="frames">0</div></div>
+        <div class="cell"><div class="k">Errors</div>
+          <div class="v" id="errors">0</div></div>
+        <div class="cell"><div class="k">Decode errs</div>
+          <div class="v" id="derr">0</div></div>
+        <div class="cell"><div class="k">Data in</div>
+          <div class="v" id="bytes">0 <small>KB</small></div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Error log</h2>
+      <ul id="errs"><li style="color:var(--muted)">No errors.</li></ul>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+function fmtBytes(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1048576).toFixed(2) + ' MB';
+}
+async function poll() {
+  try {
+    const r = await fetch('/api/status', { cache: 'no-store' });
+    const s = await r.json();
+    const pill = $('state');
+    pill.textContent = s.state;
+    pill.className = 'pill ' + s.state;
+    $('peer').textContent = s.peer || '';
+    $('fps').textContent = (s.fps || 0).toFixed(1);
+    $('age').textContent = s.frame_age_seconds == null ? '-'
+        : s.frame_age_seconds.toFixed(1) + 's';
+    $('frames').textContent = s.stats.frames_processed;
+    $('errors').textContent = s.stats.frames_dropped;
+    $('derr').textContent = s.stats.decode_errors;
+    $('bytes').innerHTML = fmtBytes(s.stats.bytes_received);
+    $('msg').textContent = s.message || '';
+    const view = $('view'), empty = $('empty');
+    if (s.has_frame) {
+      if (!view.src || view.src.indexOf('video_feed.mjpg') === -1) {
+        view.src = '/video_feed.mjpg?t=' + Date.now();
+      }
+      empty.style.display = 'none';
+      view.style.display = 'block';
+    } else {
+      view.style.display = 'none';
+      empty.style.display = 'block';
+    }
+    const ul = $('errs');
+    if (s.errors.length === 0) {
+      ul.innerHTML = '<li style="color:var(--muted)">No errors.</li>';
+    } else {
+      ul.innerHTML = s.errors.slice().reverse().map(function (e) {
+        return '<li><span class="at">' + e.at + '</span>' +
+               '<span class="cat">' + e.category + '</span>' + e.message +
+               '</li>';
+      }).join('');
+    }
+  } catch (e) {
+    const pill = $('state');
+    pill.textContent = 'error';
+    pill.className = 'pill error';
+    $('msg').textContent = 'Cannot reach receiver API: ' + e;
+  }
+}
+poll();
+setInterval(poll, 1000);
+</script>
+</body>
+</html>

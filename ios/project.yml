@@ -1,0 +1,100 @@
+name: MLBBDraftAI
+options:
+  bundleIdPrefix: mlbb.draftai
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # Free personal team: code signing is done on the Mac with a
+    # personal Apple ID. Set DEVELOPMENT_TEAM in Xcode after adding
+    # your team, or leave it empty and use "Automatically manage
+    # signing" in the Signing & Capabilities tab.
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    SWIFT_STRICT_CONCURRENCY: minimal
+
+targets:
+  MLBBDraftAI:
+    type: application
+    platform: iOS
+    sources:
+      - path: MLBBDraftAI
+      - path: Shared
+    info:
+      path: MLBBDraftAI/Info.plist
+      properties:
+        CFBundleDisplayName: MLBB Draft AI
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSLocalNetworkUsageDescription: >-
+          MLBB Draft AI connects to your computer on the same Wi-Fi
+          network to stream your screen to the local dashboard.
+    dependencies:
+      - target: BroadcastExtension
+        embed: true
+        codeSign: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: mlbb.draftai.app
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+
+  BroadcastExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: BroadcastExtension
+      - path: Shared
+    info:
+      path: BroadcastExtension/Info.plist
+      properties:
+        CFBundleDisplayName: MLBB Screen Upload
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.broadcast-services-upload
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).BroadcastSampleHandler
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: mlbb.draftai.app.BroadcastExtension
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "1,2"
+        # The extension must be able to reach the local network.
+        ENABLE_BITCODE: NO
+
+  BroadcastExtensionTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: BroadcastExtensionTests
+    dependencies:
+      - target: BroadcastExtension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: mlbb.draftai.app.BroadcastExtensionTests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: ""
+        BUNDLE_LOADER: ""
+
+schemes:
+  MLBBDraftAI:
+    build:
+      targets:
+        MLBBDraftAI: all
+        BroadcastExtension: all
+    test:
+      config: Debug
+      targets:
+        - BroadcastExtensionTests
+    run:
+      config: Debug
+    archive:
+      config: Release
