@@ -75,8 +75,9 @@ targets:
     platform: iOS
     sources:
       - path: BroadcastExtensionTests
-    dependencies:
-      - target: BroadcastExtension
+      # App-extension products cannot be linked into XCTest bundles. Compile
+      # the exact shared protocol source in the test target instead.
+      - path: Shared/WireProtocol.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: mlbb.draftai.app.BroadcastExtensionTests

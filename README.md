@@ -297,7 +297,7 @@ programmatic way around this — it is an OS privacy guarantee.
 | Very laggy video | Too much data | Lower `targetFPS` to 8–10 or `maxFrameWidth` to 854. |
 | "Local Network" prompt denied | iOS local-network privacy | Settings → Privacy → **Local Network** → enable **MLBB Draft AI**. |
 | Extension not listed in the picker | Extension not embedded | Verify the app target depends on the extension and it is embedded in the app bundle. |
-| Build error: "no such module 'BroadcastExtension'" | Test target config | The test target must depend on the extension (already in `project.yml`). |
+| Swift protocol-test linker error | Test target config | `BroadcastExtensionTests` compiles the shared `WireProtocol.swift` directly; regenerate the project with `xcodegen generate`. |
 
 ### Quick network sanity check (Windows)
 

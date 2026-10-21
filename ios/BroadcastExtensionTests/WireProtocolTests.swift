@@ -6,7 +6,6 @@
 /// NOTE: these tests require Xcode (and therefore macOS) to run. They are
 /// included for completeness but cannot be executed on Windows.
 import XCTest
-@testable import BroadcastExtension
 
 final class WireProtocolTests: XCTestCase {
 
