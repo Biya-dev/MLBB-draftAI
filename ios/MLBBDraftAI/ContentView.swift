@@ -107,7 +107,8 @@ struct ContentView: View {
 struct BroadcastPickerButton: UIViewRepresentable {
     func makeUIView(context: Context) -> RPSystemBroadcastPickerView {
         let picker = RPSystemBroadcastPickerView(frame: .zero)
-        picker.preferredExtension = "\(Bundle.main.bundleIdentifier ?? \"mlbb.draftai.app\").BroadcastExtension"
+        let bundleID = Bundle.main.bundleIdentifier ?? "mlbb.draftai.app"
+        picker.preferredExtension = bundleID + ".BroadcastExtension"
         picker.showsMicrophoneButton = false
         return picker
     }
